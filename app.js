@@ -3,6 +3,17 @@
 
   const STORAGE_KEY = 'camp-belongings-v1';
 
+  const STATUS_ORDER = ['none', 'got', 'unneeded', 'later'];
+  const STATUS_META = {
+    none: { label: '未選択', icon: '' },
+    got: { label: '持った', icon: '✓' },
+    unneeded: { label: 'いらない', icon: '✕' },
+    later: { label: '後で確認', icon: '?' },
+  };
+  function nextStatus(s) {
+    return STATUS_ORDER[(STATUS_ORDER.indexOf(s) + 1) % STATUS_ORDER.length];
+  }
+
   function uid() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
@@ -36,13 +47,25 @@
     };
   }
 
+  // Migrates old boolean checkedItemIds[] trips into the itemStatus map.
+  function normalize(s) {
+    s.trips.forEach(t => {
+      if (!t.itemStatus) t.itemStatus = {};
+      if (Array.isArray(t.checkedItemIds)) {
+        t.checkedItemIds.forEach(id => { if (!t.itemStatus[id]) t.itemStatus[id] = 'got'; });
+        delete t.checkedItemIds;
+      }
+    });
+    return s;
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.items) && Array.isArray(parsed.categories) && Array.isArray(parsed.trips)) {
-          return parsed;
+          return normalize(parsed);
         }
       }
     } catch (e) { console.warn('load failed', e); }
@@ -64,6 +87,14 @@
 
   function categoryCountFor(itemId) {
     return state.categories.filter(c => c.itemIds.includes(itemId)).length;
+  }
+
+  function statusOf(trip, itemId) {
+    return (trip.itemStatus && trip.itemStatus[itemId]) || 'none';
+  }
+
+  function isResolved(status) {
+    return status === 'got' || status === 'unneeded';
   }
 
   function fmtDate(iso) {
@@ -138,9 +169,13 @@
     const allItemIds = new Set();
     state.categories.forEach(c => c.itemIds.forEach(id => allItemIds.add(id)));
     const total = allItemIds.size;
-    const checked = [...allItemIds].filter(id => trip.checkedItemIds.includes(id)).length;
-    document.getElementById('progress-fill').style.width = total ? `${Math.round(checked / total * 100)}%` : '0%';
-    document.getElementById('progress-label').textContent = `${checked} / ${total}`;
+    const idList = [...allItemIds];
+    const resolved = idList.filter(id => isResolved(statusOf(trip, id))).length;
+    const laterCount = idList.filter(id => statusOf(trip, id) === 'later').length;
+    document.getElementById('progress-fill').style.width = total ? `${Math.round(resolved / total * 100)}%` : '0%';
+    document.getElementById('progress-label').textContent = laterCount
+      ? `${resolved} / ${total}（後で確認 ${laterCount}）`
+      : `${resolved} / ${total}`;
 
     const listEl = document.getElementById('category-list');
     const emptyHint = document.getElementById('checklist-empty-hint');
@@ -154,36 +189,35 @@
 
     listEl.innerHTML = state.categories.map(cat => {
       const items = cat.itemIds.map(findItem).filter(Boolean);
-      const checkedCount = items.filter(it => trip.checkedItemIds.includes(it.id)).length;
+      const resolvedCount = items.filter(it => isResolved(statusOf(trip, it.id))).length;
       const rows = items.map(it => {
-        const isChecked = trip.checkedItemIds.includes(it.id);
+        const status = statusOf(trip, it.id);
         const shareCount = categoryCountFor(it.id);
-        const cbId = `chk_${cat.id}_${it.id}`;
+        const meta = STATUS_META[status];
         return `
-          <li class="item-row ${isChecked ? 'checked' : ''}">
-            <input type="checkbox" id="${cbId}" data-item-id="${it.id}" ${isChecked ? 'checked' : ''}>
-            <label for="${cbId}">${escapeHtml(it.name)}</label>
+          <li class="item-row status-${status}" data-item-id="${it.id}">
+            <span class="status-dot" aria-hidden="true">${meta.icon}</span>
+            <span class="item-name">${escapeHtml(it.name)}</span>
             ${shareCount > 1 ? `<span class="shared-badge">他${shareCount - 1}カテゴリ</span>` : ''}
+            ${status !== 'none' ? `<span class="status-text">${meta.label}</span>` : ''}
           </li>`;
       }).join('');
       return `
         <div class="category-card">
           <div class="category-head">
             <span>${escapeHtml(cat.name)}</span>
-            <span class="cat-count">${checkedCount} / ${items.length}</span>
+            <span class="cat-count">${resolvedCount} / ${items.length}</span>
           </div>
-          <ul class="item-list">${rows || '<li class="item-row"><label>アイテムがありません</label></li>'}</ul>
+          <ul class="item-list">${rows || '<li class="item-row"><span class="item-name">アイテムがありません</span></li>'}</ul>
         </div>`;
     }).join('');
 
-    listEl.querySelectorAll('input[type="checkbox"][data-item-id]').forEach(cb => {
-      cb.addEventListener('change', () => {
-        const itemId = cb.dataset.itemId;
+    listEl.querySelectorAll('.item-row[data-item-id]').forEach(row => {
+      row.addEventListener('click', () => {
+        const itemId = row.dataset.itemId;
         const t = currentTrip();
         if (!t) return;
-        const idx = t.checkedItemIds.indexOf(itemId);
-        if (cb.checked && idx === -1) t.checkedItemIds.push(itemId);
-        if (!cb.checked && idx !== -1) t.checkedItemIds.splice(idx, 1);
+        t.itemStatus[itemId] = nextStatus(statusOf(t, itemId));
         save();
         renderChecklist();
       });
@@ -202,7 +236,7 @@
       const name = document.getElementById('trip-name-input').value.trim();
       const date = document.getElementById('trip-date-input').value;
       if (!name) return;
-      const trip = { id: uid(), name, date, checkedItemIds: [] };
+      const trip = { id: uid(), name, date, itemStatus: {} };
       state.trips.unshift(trip);
       state.currentTripId = trip.id;
       save();
@@ -215,13 +249,18 @@
       return;
     }
 
+    const allItemIds = new Set();
+    state.categories.forEach(c => c.itemIds.forEach(id => allItemIds.add(id)));
+    const idList = [...allItemIds];
+
     listEl.innerHTML = state.trips.map(t => {
       const active = t.id === state.currentTripId;
+      const resolved = idList.filter(id => isResolved(statusOf(t, id))).length;
       return `
         <li class="${active ? 'active' : ''}" data-trip-id="${t.id}">
           <div class="trip-info">
             <div class="name">${escapeHtml(t.name)}</div>
-            <div class="meta">${t.date ? fmtDate(t.date) : '日付未設定'} ・ チェック済み ${t.checkedItemIds.length}件</div>
+            <div class="meta">${t.date ? fmtDate(t.date) : '日付未設定'} ・ 対応済み ${resolved} / ${idList.length}</div>
           </div>
           <button type="button" class="trip-select-btn" data-select="${t.id}">${active ? '選択中' : '選ぶ'}</button>
           <button type="button" class="trip-delete-btn" data-delete="${t.id}" aria-label="削除">🗑️</button>
@@ -350,7 +389,7 @@
         const id = it.id;
         state.items = state.items.filter(i => i.id !== id);
         state.categories.forEach(c => { c.itemIds = c.itemIds.filter(iid => iid !== id); });
-        state.trips.forEach(t => { t.checkedItemIds = t.checkedItemIds.filter(iid => iid !== id); });
+        state.trips.forEach(t => { delete t.itemStatus[id]; });
         save();
         renderMaster();
       });
@@ -460,7 +499,7 @@
           throw new Error('invalid format');
         }
         if (!confirm('現在のデータを読み込んだ内容で上書きします。よろしいですか？')) return;
-        state = parsed;
+        state = normalize(parsed);
         save();
         renderMaster();
         alert('読み込みました。');

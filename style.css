@@ -226,20 +226,53 @@ form.form-card, form { margin: 0; }
   gap: 10px;
   padding: 10px 8px;
   border-bottom: 1px solid var(--bg-deep);
+  cursor: pointer;
+  user-select: none;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
 }
 .item-row:last-child { border-bottom: none; }
-.item-row input[type="checkbox"] {
-  width: 22px;
-  height: 22px;
-  accent-color: var(--green);
+.item-row:active { background: var(--bg-deep); }
+
+.status-dot {
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
 }
-.item-row label {
+.item-row.status-got .status-dot { background: var(--green); border-color: var(--green); }
+.item-row.status-unneeded .status-dot { background: var(--ink-soft); border-color: var(--ink-soft); }
+.item-row.status-later .status-dot { background: var(--orange); border-color: var(--orange); }
+
+.item-name {
   flex: 1;
   font-size: 0.96rem;
   padding: 4px 0;
 }
-.item-row.checked label { color: var(--ink-soft); text-decoration: line-through; }
+.item-row.status-got .item-name,
+.item-row.status-unneeded .item-name { color: var(--ink-soft); text-decoration: line-through; }
+.item-row.status-later { background: #fdf1e2; }
+.item-row.status-later:active { background: #fbe6c9; }
+
+.status-text {
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.item-row.status-got .status-text { color: var(--green-deep); background: var(--green-pale); }
+.item-row.status-unneeded .status-text { color: #fff; background: var(--ink-soft); }
+.item-row.status-later .status-text { color: var(--orange-deep); background: #fbe0bd; }
+
 .item-row .shared-badge {
   font-size: 0.68rem;
   color: var(--orange-deep);

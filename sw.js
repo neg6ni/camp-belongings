@@ -1,4 +1,4 @@
-const CACHE_NAME = 'camp-belongings-v1';
+const CACHE_NAME = 'camp-belongings-v2';
 const ASSETS = [
   './',
   './index.html',
