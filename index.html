@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>キャンプ持ち物チェック</title>
+<meta name="theme-color" content="#4a5d3a">
+<meta name="description" content="キャンプの持ち物チェックリストアプリ">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="持ち物チェック">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <h1><span class="icon">⛺</span>キャンプ持ち物チェック</h1>
+</header>
+
+<main id="view-root"></main>
+
+<template id="tpl-checklist">
+  <section class="view view-checklist">
+    <div class="trip-bar" id="trip-bar"></div>
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-label" id="progress-label">0 / 0</div>
+    </div>
+    <div id="category-list" class="category-list"></div>
+    <p class="empty-hint" id="checklist-empty-hint" hidden>マスタ管理タブでカテゴリとアイテムを登録してください。</p>
+  </section>
+</template>
+
+<template id="tpl-trips">
+  <section class="view view-trips">
+    <form id="trip-new-form" class="card form-card">
+      <h2>新しいキャンプ回を作る</h2>
+      <label>
+        名前
+        <input type="text" id="trip-name-input" placeholder="例）夏の◯◯キャンプ場" required>
+      </label>
+      <label>
+        日付
+        <input type="date" id="trip-date-input">
+      </label>
+      <button type="submit" class="btn btn-primary">作成する</button>
+    </form>
+    <h2 class="section-title">キャンプ回一覧</h2>
+    <ul id="trip-list" class="trip-list"></ul>
+  </section>
+</template>
+
+<template id="tpl-master">
+  <section class="view view-master">
+    <div class="card form-card">
+      <h2>カテゴリを追加</h2>
+      <form id="category-new-form">
+        <input type="text" id="category-name-input" placeholder="例）焚き火" required>
+        <button type="submit" class="btn btn-primary">追加</button>
+      </form>
+    </div>
+
+    <div id="master-category-list" class="master-category-list"></div>
+
+    <div class="card form-card">
+      <h2>アイテムマスタ（全体）</h2>
+      <p class="hint">名前の編集・削除はここから。削除すると全カテゴリから外れます。</p>
+      <ul id="master-item-list" class="master-item-list"></ul>
+    </div>
+
+    <div class="card form-card danger-card">
+      <h2>データ管理</h2>
+      <div class="row-buttons">
+        <button type="button" id="export-btn" class="btn btn-outline">書き出し</button>
+        <button type="button" id="import-btn" class="btn btn-outline">読み込み</button>
+        <button type="button" id="reset-btn" class="btn btn-danger">全データ初期化</button>
+      </div>
+      <input type="file" id="import-file" accept="application/json" hidden>
+    </div>
+  </section>
+</template>
+
+<template id="tpl-item-picker">
+  <div class="modal-backdrop">
+    <div class="modal">
+      <h3>アイテムを追加</h3>
+      <input type="text" id="picker-search" placeholder="検索 / 新規アイテム名">
+      <ul id="picker-list" class="picker-list"></ul>
+      <div class="row-buttons">
+        <button type="button" id="picker-create-btn" class="btn btn-primary">新規アイテムとして追加</button>
+        <button type="button" id="picker-close-btn" class="btn btn-outline">閉じる</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<nav class="tabbar">
+  <button class="tab-btn" data-view="checklist">
+    <span class="tab-icon">✅</span><span>チェック</span>
+  </button>
+  <button class="tab-btn" data-view="trips">
+    <span class="tab-icon">🏕️</span><span>キャンプ回</span>
+  </button>
+  <button class="tab-btn" data-view="master">
+    <span class="tab-icon">🛠️</span><span>マスタ管理</span>
+  </button>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
